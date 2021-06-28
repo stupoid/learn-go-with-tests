@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +12,7 @@ import (
 type StubPlayerStore struct {
 	scores   map[string]int
 	winCalls []string
-	league   []Player
+	league   League
 }
 
 func (s *StubPlayerStore) GetPlayerScore(name string) int {
@@ -25,7 +24,7 @@ func (s *StubPlayerStore) RecordWin(name string) {
 	s.winCalls = append(s.winCalls, name)
 }
 
-func (s *StubPlayerStore) GetLeague() []Player {
+func (s *StubPlayerStore) GetLeague() League {
 	return s.league
 }
 
@@ -131,6 +130,17 @@ func newPostWinRequest(name string) *http.Request {
 	return req
 }
 
+func getLeagueFromResponse(t testing.TB, body io.Reader) []Player {
+	t.Helper()
+	league, _ := NewLeague(body)
+	return league
+}
+
+func newLeagueRequest() *http.Request {
+	request, _ := http.NewRequest(http.MethodGet, "/league", nil)
+	return request
+}
+
 func assertResponseBody(t testing.TB, got, want string) {
 	t.Helper()
 	if got != want {
@@ -145,17 +155,6 @@ func assertStatus(t testing.TB, got, want int) {
 	}
 }
 
-func getLeagueFromResponse(t testing.TB, body io.Reader) (league []Player) {
-	t.Helper()
-	err := json.NewDecoder(body).Decode(&league)
-
-	if err != nil {
-		t.Fatalf("Unable to parse respone from server %q into slice of Player, '%v'", body, err)
-	}
-
-	return
-}
-
 func assertLeague(t testing.TB, got, want []Player) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
@@ -163,7 +162,16 @@ func assertLeague(t testing.TB, got, want []Player) {
 	}
 }
 
-func newLeagueRequest() *http.Request {
-	request, _ := http.NewRequest(http.MethodGet, "/league", nil)
-	return request
+func assertScoreEquals(t testing.TB, got, want int) {
+	t.Helper()
+	if got != want {
+		t.Errorf("got %d want %d", got, want)
+	}
+}
+
+func assertNoError(t testing.TB, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("didn't expect an error but got one, %v", err)
+	}
 }
